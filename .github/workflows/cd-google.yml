@@ -1,0 +1,68 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches: [master]
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GKE_CLUSTER: cluster-1
+  GKE_ZONE: southamerica-east1-a
+  BACK_DEPLOYMENT_NAME: backend-deployment
+
+jobs:
+  setup-build-publish-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    # Setup gcloud CLI
+    - uses: google-github-actions/setup-gcloud@v0.2.0
+      with:
+        service_account_key: ${{ secrets.GKE_SA_KEY }}
+        project_id: ${{ secrets.GKE_PROJECT }}
+
+    # Configure Docker to use the gcloud command-line tool as a credential helper for authentication
+    - run: |-
+        gcloud --quiet auth configure-docker
+
+    # Get the GKE credentials so we can deploy to the cluster
+    - uses: google-github-actions/get-gke-credentials@v0.2.1
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+        credentials: ${{ secrets.GKE_SA_KEY }}
+
+    - name: Bump version and push tag
+      id: tagging
+      uses: mathieudutour/github-tag-action@v4.5
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+####################################################################################################################################
+
+
+    # Build the Backend Docker image
+    - name: Build-BACKEND
+      working-directory: ./backend
+      run: |-
+        docker build . -t "gcr.io/$PROJECT_ID/backend:${{ steps.tagging.outputs.new_version }}"
+          
+   # Push the Backend Docker image to Google Container Registry
+    - name: Publish-BACKEND
+      working-directory: ./backend
+      run: |-
+        docker push "gcr.io/$PROJECT_ID/backend:${{ steps.tagging.outputs.new_version }}"
+    
+
+    # Deploy images to the GKE cluster
+    - name: Deploy
+      run: |-
+        kubectl apply -f release-k8s/k8s-manifests.yml
+        kubectl rollout status deployment/$BACK_DEPLOYMENT_NAME
+        kubectl get services -o wide
+      
