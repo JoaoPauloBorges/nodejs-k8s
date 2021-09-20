@@ -59,7 +59,7 @@ jobs:
     # Deploy images to the GKE cluster
     - name: Deploy
       run: |-
-        kubectl patch -f release/deployment.yaml
+        kubectl --patch release/deployment.yaml
         kubectl rollout status deployment/$BACK_DEPLOYMENT_NAME
         kubectl get services -o wide
       
