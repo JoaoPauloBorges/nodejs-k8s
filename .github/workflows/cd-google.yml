@@ -49,12 +49,12 @@ jobs:
     # Build the Backend Docker image
     - name: Build-BACKEND
       run: |-
-        docker build . -t "gcr.io/$PROJECT_ID/backend:${{ steps.tagging.outputs.new_version }}"
+        docker build . -t "gcr.io/$PROJECT_ID/backend:latest"
           
    # Push the Backend Docker image to Google Container Registry
     - name: Publish-BACKEND
       run: |-
-        docker push "gcr.io/$PROJECT_ID/backend:${{ steps.tagging.outputs.new_version }}"
+        docker push "gcr.io/$PROJECT_ID/backend:latest"
     
     # Deploy images to the GKE cluster
     - name: Deploy
